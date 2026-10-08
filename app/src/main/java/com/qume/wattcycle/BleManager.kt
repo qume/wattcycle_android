@@ -159,12 +159,14 @@ class BleManager(private val context: Context) {
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             if (characteristic.uuid == AUTH_UUID && status == BluetoothGatt.GATT_SUCCESS) {
                 addLog("Auth success for ${gatt.device.address}, requesting Analog Quantity...")
+                // Start requesting loop
                 requestAnalogQuantity(gatt)
             }
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             if (characteristic.uuid == NOTIFY_UUID) {
+                addLog("Received chunk of size ${characteristic.value.size}")
                 val mac = gatt.device.address
                 val chunk = characteristic.value
                 var buffer = rxBuffers[mac] ?: ByteArray(0)
@@ -175,6 +177,7 @@ class BleManager(private val context: Context) {
                     val expectedLen = dataLen + 11
                     if (buffer.size >= expectedLen) {
                         val packet = buffer.copyOfRange(0, expectedLen)
+                        addLog("Complete packet assembled: size ${packet.size}")
                         rxBuffers[mac] = buffer.copyOfRange(expectedLen, buffer.size)
                         parsePacket(gatt.device, packet)
                     } else {
@@ -195,6 +198,7 @@ class BleManager(private val context: Context) {
             val cmd = byteArrayOf(0x7E.toByte(), 0x00.toByte(), 0x01.toByte(), 0x03.toByte(), 0x00.toByte(), 0x8C.toByte(), 0x00.toByte(), 0x00.toByte())
             val crc = modbusCrc16(cmd)
             val fullCmd = cmd + byteArrayOf((crc shr 8).toByte(), (crc and 0xFF).toByte(), 0x0D.toByte())
+            addLog("TX: " + fullCmd.joinToString("") { "%02X".format(it) })
             writeChar.value = fullCmd
             gatt.writeCharacteristic(writeChar)
             
@@ -208,15 +212,28 @@ class BleManager(private val context: Context) {
     }
 
     private fun parsePacket(device: BluetoothDevice, packet: ByteArray) {
-        if (packet.size < 11) return
+        addLog("RX: " + packet.joinToString("") { "%02X".format(it) })
+        if (packet.size < 11) {
+            addLog("Packet too short")
+            return
+        }
         val func = packet[3]
-        if (func != 0x03.toByte()) return // Only read responses
+        if (func != 0x03.toByte()) {
+            addLog("Not a read response (func = $func)")
+            return
+        }
         
         val startAddr = ((packet[4].toInt() and 0xFF) shl 8) or (packet[5].toInt() and 0xFF)
-        if (startAddr != 0x008C) return // Only Analog Quantity
+        if (startAddr != 0x008C) {
+            addLog("Not Analog Quantity (addr = ${"%04X".format(startAddr)})")
+            return
+        }
         
         val dataLen = ((packet[6].toInt() and 0xFF) shl 8) or (packet[7].toInt() and 0xFF)
-        if (packet.size < 8 + dataLen) return
+        if (packet.size < 8 + dataLen) {
+            addLog("Data len mismatch")
+            return
+        }
         
         val data = packet.copyOfRange(8, 8 + dataLen)
         
