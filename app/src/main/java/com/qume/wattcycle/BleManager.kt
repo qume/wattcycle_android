@@ -56,7 +56,7 @@ class BleManager(private val context: Context) {
             if (name.startsWith("XDZN") || name.startsWith("WT")) {
                 val mac = device.address
                 if (!_batteries.value.containsKey(mac)) {
-                    addLog("App Version: 0.3.7")
+                    addLog("App Version: 0.3.8")
                     addLog("Found device: $name ($mac)")
                     updateBattery(mac) { it ?: BatteryData(mac, name) }
                     connect(device)
@@ -107,6 +107,7 @@ class BleManager(private val context: Context) {
                 updateBattery(mac) { it!!.copy(isConnected = true, isConnecting = false) }
                 gatt.discoverServices()
                 addLog("Wait for services to be discovered before polling...")
+                startPolling(gatt)
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 addLog("Disconnected from $mac (status $status)")
                 updateBattery(mac) { it!!.copy(isConnected = false, isConnecting = false) }
@@ -163,17 +164,6 @@ class BleManager(private val context: Context) {
                 gatt.writeCharacteristic(authChar)
                 addLog("Sent HiLink auth to ${gatt.device.address}")
                 addLog("Auth payload size: ${authPayload.size}")
-                handler.postDelayed({
-                    val runnable = object : Runnable {
-                        override fun run() {
-                            if (gattConnections.containsKey(gatt.device.address)) {
-                                requestAnalogQuantity(gatt)
-                                handler.postDelayed(this, 5000L)
-                            }
-                        }
-                    }
-                    handler.post(runnable)
-                }, 500L)
             }
         }
 
@@ -212,6 +202,15 @@ class BleManager(private val context: Context) {
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             addLog("onCharRead: ${characteristic.uuid}, status: $status")
         }
+    }
+
+    private fun startPolling(gatt: BluetoothGatt) {
+        handler.postDelayed({
+            if (gattConnections.containsKey(gatt.device.address)) {
+                requestAnalogQuantity(gatt)
+                startPolling(gatt)
+            }
+        }, 5000L)
     }
 
     private fun requestAnalogQuantity(gatt: BluetoothGatt) {
