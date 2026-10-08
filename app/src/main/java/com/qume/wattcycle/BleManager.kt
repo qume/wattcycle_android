@@ -56,7 +56,7 @@ class BleManager(private val context: Context) {
             if (name.startsWith("XDZN") || name.startsWith("WT")) {
                 val mac = device.address
                 if (!_batteries.value.containsKey(mac)) {
-                    addLog("App Version: 0.3.4")
+                    addLog("App Version: 0.3.6")
                     addLog("Found device: $name ($mac)")
                     updateBattery(mac) { it ?: BatteryData(mac, name) }
                     connect(device)
@@ -106,6 +106,7 @@ class BleManager(private val context: Context) {
                 addLog("Connected to $mac, discovering services...")
                 updateBattery(mac) { it!!.copy(isConnected = true, isConnecting = false) }
                 gatt.discoverServices()
+                addLog("Wait for services to be discovered before polling...")
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 addLog("Disconnected from $mac (status $status)")
                 updateBattery(mac) { it!!.copy(isConnected = false, isConnecting = false) }
@@ -122,26 +123,34 @@ class BleManager(private val context: Context) {
                 addLog("Services discovered for $mac")
                 val service = gatt.getService(SERVICE_UUID)
                 if (service != null) {
+                    addLog("Starting Polling Loop for Analog Quantity...")
+                    startPolling(gatt)
                     val notifyChar = service.getCharacteristic(NOTIFY_UUID)
                     if (notifyChar != null) {
-                        gatt.setCharacteristicNotification(notifyChar, true)
-                        // In BLE, usually we also need to write to CCCD 0x2902, but some devices don't require it or it's implicitly handled.
-                        // We'll write CCCD just in case
+                        // Modern CCCD write logic just in case the old one failed
+                        addLog("Enabling notifications on NOTIFY_UUID...")
+                        val successNotify = gatt.setCharacteristicNotification(notifyChar, true)
+                        addLog("setCharacteristicNotification=$successNotify")
+                        
                         val desc = notifyChar.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
                         if (desc != null) {
                             desc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            gatt.writeDescriptor(desc)
+                            val descSuccess = gatt.writeDescriptor(desc)
+                            addLog("writeDescriptor(CCCD)=$descSuccess")
                         } else {
-                            // Proceed to Auth
+                            addLog("CCCD descriptor not found!")
                             sendAuth(gatt)
                         }
+                    } else {
+                        addLog("NOTIFY_UUID not found")
+                    }
                     }
                 }
             }
         }
 
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor?, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
+            if (status == BluetoothGatt.GATT_SUCCESS && descriptor?.uuid == UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")) {
                 sendAuth(gatt)
             }
         }
@@ -157,11 +166,6 @@ class BleManager(private val context: Context) {
                 addLog("Sent HiLink auth to ${gatt.device.address}")
                 addLog("Auth payload size: ${authPayload.size}")
                 
-                // Wait 500ms then start requesting Analog Quantity (just like Python client)
-                handler.postDelayed({
-                    addLog("Auth delay finished, requesting Analog Quantity...")
-                    requestAnalogQuantity(gatt)
-                }, 500L)
             }
         }
 
@@ -170,6 +174,9 @@ class BleManager(private val context: Context) {
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            if (characteristic.uuid != NOTIFY_UUID) {
+                addLog("Changed event from unknown UUID: ${characteristic.uuid}")
+            }
             if (characteristic.uuid == NOTIFY_UUID) {
                 addLog("Received chunk of size ${characteristic.value.size}")
                 val mac = gatt.device.address
@@ -193,28 +200,35 @@ class BleManager(private val context: Context) {
                 }
             }
         }
+
+        override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            addLog("onCharRead: ${characteristic.uuid}, status: $status")
+        }
+    }
+
+    private fun startPolling(gatt: BluetoothGatt) {
+        handler.postDelayed({
+            if (gattConnections.containsKey(gatt.device.address)) {
+                requestAnalogQuantity(gatt)
+                startPolling(gatt)
+            }
+        }, 5000L)
     }
 
     private fun requestAnalogQuantity(gatt: BluetoothGatt) {
+        addLog("Requesting Analog Quantity...")
         val service = gatt.getService(SERVICE_UUID)
         val writeChar = service?.getCharacteristic(WRITE_UUID)
         if (writeChar != null) {
-            // The python library does NOT use new frame! It uses old frame format. Let's revert to old frame
-            // TX: 7E 00 01 03 00 8C 00 00 [CRC_HI] [CRC_LO] 0D
             val cmd = byteArrayOf(0x7E.toByte(), 0x00.toByte(), 0x01.toByte(), 0x03.toByte(), 0x00.toByte(), 0x8C.toByte(), 0x00.toByte(), 0x00.toByte())
             val crc = modbusCrc16(cmd)
             val fullCmd = cmd + byteArrayOf((crc shr 8).toByte(), (crc and 0xFF).toByte(), 0x0D.toByte()) // CRC is already big-endian (lo << 8 | hi)
-            addLog("TX: " + fullCmd.joinToString("") { "%02X".format(it) })
             writeChar.setValue(fullCmd)
             writeChar.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            gatt.writeCharacteristic(writeChar)
-            
-            // Re-request every 5 seconds
-            handler.postDelayed({
-                if (gattConnections.containsKey(gatt.device.address)) {
-                    requestAnalogQuantity(gatt)
-                }
-            }, 5000)
+            val success = gatt.writeCharacteristic(writeChar)
+            addLog("TX Request: success=$success, " + fullCmd.joinToString("") { "%02X".format(it) })
+        } else {
+            addLog("WRITE_UUID not found")
         }
     }
 
