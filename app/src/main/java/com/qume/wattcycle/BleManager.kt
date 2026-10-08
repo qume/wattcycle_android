@@ -289,7 +289,10 @@ class BleManager(private val context: Context) {
             WattcycleProtocol.DP_ANALOG_QUANTITY -> {
                 val parsed = WattcycleProtocol.parseAnalogQuantity(data)
                 if (parsed != null) {
-                    addLog("Parsed: ${parsed.soc}%, ${String.format(\"%.2f\", parsed.moduleVoltage)}V, ${String.format(\"%.1f\", parsed.current)}A, ${String.format(\"%.1f\", parsed.mosTemperature)}°C")
+                    val vStr = String.format("%.2f", parsed.moduleVoltage)
+                    val cStr = String.format("%.1f", parsed.current)
+                    val tStr = String.format("%.1f", parsed.mosTemperature)
+                    addLog("Parsed: ${parsed.soc}%, ${vStr}V, ${cStr}A, ${tStr}°C")
                     updateBattery(mac) {
                         it!!.copy(
                             soc = parsed.soc,
