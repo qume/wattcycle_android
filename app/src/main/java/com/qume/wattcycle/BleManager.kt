@@ -151,7 +151,7 @@ class BleManager(private val context: Context) {
             val authChar = service?.getCharacteristic(AUTH_UUID)
             if (authChar != null) {
                 val authPayload = "HiLink".toByteArray(Charsets.UTF_8)
-                authChar.value = authPayload
+                authChar.setValue(authPayload)
                 gatt.writeCharacteristic(authChar)
                 addLog("Sent HiLink auth to ${gatt.device.address}")
                 addLog("Auth payload size: ${authPayload.size}")
@@ -196,13 +196,13 @@ class BleManager(private val context: Context) {
         val service = gatt.getService(SERVICE_UUID)
         val writeChar = service?.getCharacteristic(WRITE_UUID)
         if (writeChar != null) {
-            // Try new protocol version frame first. Wait, maybe new version read requires INFO_DATA?
-            // From protocol doc: "TX: 7E 01 01 03 00 8C 00 00 00 05 01 00 20 00 20 [CRC_HI] [CRC_LO] 0D"
-            val cmd = byteArrayOf(0x7E.toByte(), 0x01.toByte(), 0x01.toByte(), 0x03.toByte(), 0x00.toByte(), 0x8C.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x05.toByte(), 0x01.toByte(), 0x00.toByte(), 0x20.toByte(), 0x00.toByte(), 0x20.toByte())
+            // The python library does NOT use new frame! It uses old frame format. Let's revert to old frame
+            // TX: 7E 00 01 03 00 8C 00 00 [CRC_HI] [CRC_LO] 0D
+            val cmd = byteArrayOf(0x7E.toByte(), 0x00.toByte(), 0x01.toByte(), 0x03.toByte(), 0x00.toByte(), 0x8C.toByte(), 0x00.toByte(), 0x00.toByte())
             val crc = modbusCrc16(cmd)
             val fullCmd = cmd + byteArrayOf((crc shr 8).toByte(), (crc and 0xFF).toByte(), 0x0D.toByte())
             addLog("TX: " + fullCmd.joinToString("") { "%02X".format(it) })
-            writeChar.value = fullCmd
+            writeChar.setValue(fullCmd)
             gatt.writeCharacteristic(writeChar)
             
             // Re-request every 5 seconds
@@ -216,6 +216,11 @@ class BleManager(private val context: Context) {
 
     private fun parsePacket(device: BluetoothDevice, packet: ByteArray) {
         addLog("RX: " + packet.joinToString("") { "%02X".format(it) })
+        val head = packet[0].toInt() and 0xFF
+        if (head != 0x7E && head != 0x1E) {
+            addLog("Invalid frame head: ${"%02X".format(head)}")
+            return
+        }
         if (packet.size < 11) {
             addLog("Packet too short: size ${packet.size}")
             return
