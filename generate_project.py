@@ -1,11 +1,6 @@
 import os
-import urllib.request
-import zipfile
 
 def setup_project():
-    # Download a basic jetpack compose template or just write files.
-    # To be extremely reliable, we'll write the essential files directly.
-    
     dirs = [
         "app/src/main/java/com/qume/wattcycle",
         "app/src/main/res/drawable",
@@ -18,8 +13,7 @@ def setup_project():
         os.makedirs(d, exist_ok=True)
         
     files = {
-        "settings.gradle.kts": """
-pluginManagement {
+        "settings.gradle.kts": """pluginManagement {
     repositories {
         google()
         mavenCentral()
@@ -36,8 +30,7 @@ dependencyResolutionManagement {
 rootProject.name = "Wattcycle"
 include(":app")
 """,
-        "build.gradle.kts": """
-buildscript {
+        "build.gradle.kts": """buildscript {
     ext {
         compose_version = "1.5.0"
     }
@@ -47,21 +40,18 @@ plugins {
     id("org.jetbrains.kotlin.android") version "1.9.0" apply false
 }
 """,
-        "gradle.properties": """
-org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+        "gradle.properties": """org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.useAndroidX=true
 kotlin.code.style=official
 android.nonTransitiveRClass=true
 """,
-        "gradle/wrapper/gradle-wrapper.properties": """
-distributionBase=GRADLE_USER_HOME
+        "gradle/wrapper/gradle-wrapper.properties": """distributionBase=GRADLE_USER_HOME
 distributionPath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip
+distributionUrl=https\\://services.gradle.org/distributions/gradle-8.3-bin.zip
 zipStoreBase=GRADLE_USER_HOME
 zipStorePath=wrapper/dists
 """,
-        "app/build.gradle.kts": """
-plugins {
+        "app/build.gradle.kts": """plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
@@ -137,13 +127,11 @@ dependencies {
     </application>
 </manifest>
 """,
-        "app/src/main/res/values/strings.xml": """
-<resources>
+        "app/src/main/res/values/strings.xml": """<resources>
     <string name="app_name">Wattcycle</string>
 </resources>
 """,
-        "app/src/main/res/drawable/ic_launcher_foreground.xml": """
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+        "app/src/main/res/drawable/ic_launcher_foreground.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
     <path android:fillColor="#2196F3" android:pathData="M18,24 L34,84 L54,44 L74,84 L90,24 L78,24 L64,70 L54,50 L44,70 L30,24 Z" />
@@ -151,22 +139,19 @@ dependencies {
     <path android:fillColor="#000000" android:pathData="M42,38 h24 v32 h-24 z M44,40 v28 h20 v-28 z M50,34 h8 v4 h-8 z" />
 </vector>
 """,
-        "app/src/main/res/drawable/ic_launcher_background.xml": """
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
+        "app/src/main/res/drawable/ic_launcher_background.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
     <path android:fillColor="#FFFFFF" android:pathData="M0,0h108v108h-108z"/>
 </vector>
 """,
-        "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": """
-<?xml version="1.0" encoding="utf-8"?>
+        "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": """<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>
 """,
-        ".github/workflows/build.yml": """
-name: Android CI
+        ".github/workflows/build.yml": """name: Android CI
 
 on:
   push:
@@ -178,9 +163,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -193,7 +178,7 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wattcycle-app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
@@ -202,7 +187,7 @@ jobs:
 
     for path, content in files.items():
         with open(path, "w") as f:
-            f.write(content.strip() + "\")
+            f.write(content.strip() + "\n")
             
     print("Project initialized!")
 
