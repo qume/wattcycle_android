@@ -56,7 +56,7 @@ class BleManager(private val context: Context) {
             if (name.startsWith("XDZN") || name.startsWith("WT")) {
                 val mac = device.address
                 if (!_batteries.value.containsKey(mac)) {
-                    addLog("App Version: 0.3.0")
+                    addLog("App Version: 0.3.4")
                     addLog("Found device: $name ($mac)")
                     updateBattery(mac) { it ?: BatteryData(mac, name) }
                     connect(device)
