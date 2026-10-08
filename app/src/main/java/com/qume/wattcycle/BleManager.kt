@@ -152,18 +152,21 @@ class BleManager(private val context: Context) {
             if (authChar != null) {
                 val authPayload = "HiLink".toByteArray(Charsets.UTF_8)
                 authChar.setValue(authPayload)
+                authChar.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
                 gatt.writeCharacteristic(authChar)
                 addLog("Sent HiLink auth to ${gatt.device.address}")
                 addLog("Auth payload size: ${authPayload.size}")
+                
+                // Wait 500ms then start requesting Analog Quantity (just like Python client)
+                handler.postDelayed({
+                    addLog("Auth delay finished, requesting Analog Quantity...")
+                    requestAnalogQuantity(gatt)
+                }, 500L)
             }
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
-            if (characteristic.uuid == AUTH_UUID && status == BluetoothGatt.GATT_SUCCESS) {
-                addLog("Auth success for ${gatt.device.address}, requesting Analog Quantity...")
-                // Start requesting loop
-                requestAnalogQuantity(gatt)
-            }
+            addLog("onCharWrite: ${characteristic.uuid}, status: $status")
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
@@ -203,6 +206,7 @@ class BleManager(private val context: Context) {
             val fullCmd = cmd + byteArrayOf((crc shr 8).toByte(), (crc and 0xFF).toByte(), 0x0D.toByte()) // CRC is already big-endian (lo << 8 | hi)
             addLog("TX: " + fullCmd.joinToString("") { "%02X".format(it) })
             writeChar.setValue(fullCmd)
+            writeChar.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             gatt.writeCharacteristic(writeChar)
             
             // Re-request every 5 seconds
