@@ -20,11 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.flow.collectAsState
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit val bleManager: BleManager
+    private lateinit var bleManager: BleManager
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -83,9 +82,9 @@ fun AppContent(bleManager: BleManager) {
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "Wattcycle Batteries", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(text = "Wattcycle", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Button(onClick = { showLogs = !showLogs }) {
-                Text(if (showLogs) "Hide Logs" else "Show Logs")
+                Text(if (showLogs) "Batteries" else "Logs")
             }
         }
 
@@ -139,7 +138,7 @@ fun LogView(logs: List<String>, bleManager: BleManager) {
         Button(
             onClick = {
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Logs", logs.joinToString("\"))
+                val clip = ClipData.newPlainText("Logs", logs.joinToString("\n"))
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(context, "Logs copied to clipboard", Toast.LENGTH_SHORT).show()
             },
