@@ -119,6 +119,7 @@ fun BatteryList(batteries: List<BatteryData>) {
                         val state = if (battery.current > 0) "Charging" else if (battery.current < 0) "Discharging" else "Idle"
                         Text(text = "Power: ${String.format("%.2f", watts)} W ($state)")
                         Text(text = "Temp: ${String.format("%.1f", battery.temperature)} °C")
+                        Text(text = "Cycles: ${battery.cycleCount}")
                     } else if (battery.isConnecting) {
                         Text(text = "Status: Connecting...", color = Color.Gray)
                     } else {

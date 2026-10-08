@@ -18,6 +18,7 @@ data class BatteryData(
     val voltage: Double = 0.0,
     val current: Double = 0.0,
     val temperature: Double = 0.0,
+    val cycleCount: Int = 0,
     val isConnected: Boolean = false,
     val isConnecting: Boolean = false
 )
@@ -58,7 +59,7 @@ class BleManager(private val context: Context) {
             if (name.startsWith("XDZN") || name.startsWith("WT")) {
                 val mac = device.address
                 if (!_batteries.value.containsKey(mac)) {
-                    addLog("App Version: 0.5.0")
+                    addLog("App Version: 0.5.1")
                     addLog("Found device: $name ($mac)")
                     updateBattery(mac) { it ?: BatteryData(mac, name) }
                     connect(device)
@@ -298,7 +299,8 @@ class BleManager(private val context: Context) {
                             soc = parsed.soc,
                             voltage = parsed.moduleVoltage,
                             current = parsed.current,
-                            temperature = parsed.mosTemperature
+                            temperature = parsed.mosTemperature,
+                            cycleCount = parsed.cycleNumber
                         )
                     }
                 } else {
