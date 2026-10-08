@@ -56,7 +56,7 @@ class BleManager(private val context: Context) {
             if (name.startsWith("XDZN") || name.startsWith("WT")) {
                 val mac = device.address
                 if (!_batteries.value.containsKey(mac)) {
-                    addLog("App Version: 0.3.8")
+                    addLog("App Version: 0.3.9")
                     addLog("Found device: $name ($mac)")
                     updateBattery(mac) { it ?: BatteryData(mac, name) }
                     connect(device)
@@ -202,7 +202,7 @@ class BleManager(private val context: Context) {
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             addLog("onCharRead: ${characteristic.uuid}, status: $status")
         }
-    }
+    } // end gattCallback
 
     private fun startPolling(gatt: BluetoothGatt) {
         handler.postDelayed({
