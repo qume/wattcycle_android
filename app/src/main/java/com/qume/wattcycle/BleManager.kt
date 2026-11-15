@@ -52,14 +52,24 @@ class BleManager(private val context: Context) {
         _logs.value = (listOf(msg) + _logs.value).take(100)
     }
 
+    private val seenDevices = mutableSetOf<String>()
+
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
+            val mac = device.address
             val name = device.name ?: result.scanRecord?.deviceName ?: "Unknown"
-            if (name.startsWith("XDZN") || name.startsWith("WT")) {
-                val mac = device.address
+            val hasService = result.scanRecord?.serviceUuids?.any {
+                it.uuid == SERVICE_UUID || it.uuid.toString().contains("fff0", ignoreCase = true)
+            } == true
+
+            if (seenDevices.add(mac)) {
+                Log.d("Wattcycle", "Scanned BLE: $name ($mac)")
+            }
+
+            if (name.startsWith("XDZN") || name.startsWith("WT") || hasService || mac.equals("C0:D6:3C:57:EF:2F", ignoreCase = true)) {
                 if (!_batteries.value.containsKey(mac)) {
-                    addLog("App Version: 0.5.1")
+                    addLog("App Version: 0.5.2")
                     addLog("Found device: $name ($mac)")
                     updateBattery(mac) { it ?: BatteryData(mac, name) }
                     connect(device)
@@ -95,7 +105,7 @@ class BleManager(private val context: Context) {
         val mac = device.address
         updateBattery(mac) { it!!.copy(isConnecting = true) }
         addLog("Connecting to $mac...")
-        val gatt = device.connectGatt(context, false, gattCallback)
+        val gatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
         gattConnections[mac] = gatt
     }
 
